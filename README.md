@@ -1,0 +1,2 @@
+# ConvNext
+Studying for convnext
