@@ -154,7 +154,7 @@ class ConvNeXt(nn.Module):
                   for j in range(depths[i])]
             )  # * 表示
             self.stages.append(stage)
-            cur + depths[i]
+            cur += depths[i]
 
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)  # 最后一层norm layer
         self.head = nn.Linear(dims[-1], num_classes)

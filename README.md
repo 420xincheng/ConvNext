@@ -1,2 +1,2 @@
 # ConvNext
-Studying for convnext
+Studying for convnext and so on...
