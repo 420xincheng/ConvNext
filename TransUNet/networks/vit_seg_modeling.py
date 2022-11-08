@@ -149,7 +149,7 @@ class Embeddings(nn.Module):
             patch_size = (img_size[0] // 16 // grid_size[0], img_size[1] // 16 // grid_size[1])
             # patch_size_real = (32,32)
             patch_size_real = (patch_size[0] * 16, patch_size[1] * 16) # （32,32）
-            n_patches = (img_size[0] // patch_size_real[0]) * (img_size[1] // patch_size_real[1])  # n_patches = 16 * 16
+            n_patches = (img_size[0] // patch_size_real[0]) * (img_size[1] // patch_size_real[1])  # n_patches = 16 * 16 = 256
             self.hybrid = True
         else:
             patch_size = _pair(config.patches["size"])  # (16,16) or (32,32)
@@ -177,7 +177,7 @@ class Embeddings(nn.Module):
             features = None
         x = self.patch_embeddings(x)  # (B, hidden. n_patches^(1/2), n_patches^(1/2))
         x = x.flatten(2)  # flatten降维 [B,C,H,W] => [B,C, HW]
-        x = x.transpose(-1, -2)  # => [B, HW, C] / (B, n_patches, hidden)
+        x = x.transpose(-1, -2)  # => [B, HW, C] / (B, n_patches, hidden) 【1， 256， 512】
 
         embeddings = x + self.position_embeddings
         embeddings = self.dropout(embeddings)
@@ -335,7 +335,7 @@ class DecoderBlock(nn.Module):
         self.up = nn.UpsamplingBilinear2d(scale_factor=2)  # 上采样---相当于图像插值 scale_factor=2，变为原来的2倍
 
     def forward(self, x, skip=None):
-        x = self.up(x)
+        x = self.up(x)  # [1,256,512] -> [1,512,512]
         if skip is not None:
             x = torch.cat([x, skip], dim=1)
         x = self.conv1(x)
