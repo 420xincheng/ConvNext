@@ -142,24 +142,25 @@ class Embeddings(nn.Module):
         self.config = config
         img_size = _pair(img_size)  # _pair 返回(img_size,img_size)
 
-        if config.patches.get("grid") is not None:  # ResNet
+        if config.patches.get("grid") is not None:  # ResNet50
             grid_size = config.patches["grid"]  # (16,16)
             # patch_size = (512 / 16 / 16 = 2, 2)  不重叠的获取，此时分割线处的内容信息就不能完整获得
+            # img_size[0] // 16 这里的16是指图片经过resnet50之后H变为原来的1/16.   再除以网格大小就得到了patch_size
             patch_size = (img_size[0] // 16 // grid_size[0], img_size[1] // 16 // grid_size[1])
             # patch_size_real = (32,32)
-            patch_size_real = (patch_size[0] * 16, patch_size[1] * 16)
+            patch_size_real = (patch_size[0] * 16, patch_size[1] * 16) # （32,32）
             n_patches = (img_size[0] // patch_size_real[0]) * (img_size[1] // patch_size_real[1])  # n_patches = 16 * 16
             self.hybrid = True
         else:
             patch_size = _pair(config.patches["size"])  # (16,16) or (32,32)
             # N(图片批次个数) = (H * W) / P^2
-            n_patches = (img_size[0] // patch_size[0]) * (img_size[1] // patch_size[1])
+            n_patches = (img_size[0] // patch_size[0]) * (img_size[1] // patch_size[1])  # 32 * 32
             self.hybrid = False
         # hybrid混合
         if self.hybrid:
             self.hybrid_model = ResNetV2(block_units=config.resnet.num_layers, width_factor=config.resnet.width_factor)
-            in_channels = self.hybrid_model.width * 16
-        # kernel和stride都是patch_size大小
+            in_channels = self.hybrid_model.width * 16  # 64 * 16 = 1024 也就是最后一层resnet的输出通道数
+        # kernel和stride都是patch_size大小: 表示不重叠的获取，也就是把图片分成一个一个的网格
         self.patch_embeddings = Conv2d(in_channels=in_channels,
                                        out_channels=config.hidden_size,
                                        kernel_size=patch_size,
@@ -171,7 +172,7 @@ class Embeddings(nn.Module):
 
     def forward(self, x):
         if self.hybrid:
-            x, features = self.hybrid_model(x)  # ResNetV2(x)
+            x, features = self.hybrid_model(x)  # ResNetV2(x)  [B,C,H,W]=[B,1024,512/16=32]
         else:
             features = None
         x = self.patch_embeddings(x)  # (B, hidden. n_patches^(1/2), n_patches^(1/2))
@@ -281,7 +282,7 @@ class Transformer(nn.Module):
         return encoded, attn_weights, features
 
 
-# 图中将hidden feature变为[512,H/16,W/16]那一步
+# 图中将hidden feature [D, H/16, W/16] -> [512,H/16,W/16]那一步
 class Conv2dReLU(nn.Sequential):
     def __init__(
             self,
@@ -348,7 +349,6 @@ class SegmentationHead(nn.Sequential):
         conv2d = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2)
         upsampling = nn.UpsamplingBilinear2d(  # 对由多个输入通道组成的输入信号进行二维双线上采样。
             scale_factor=upsampling) if upsampling > 1 else nn.Identity()  # nn.Identity()一个占位符
-        # self.fc3 = nn.Linear(xxx(上一层通道数), 4096) 直接一层线性层？
         super().__init__(conv2d, upsampling)
 
 
@@ -366,13 +366,13 @@ class DecoderCup(nn.Module):
             use_batchnorm=True,
         )
         decoder_channels = config.decoder_channels
-        in_channels = [head_channels] + list(decoder_channels[:-1])   # [512,256, 128, 64]
-        out_channels = decoder_channels
+        in_channels = [head_channels] + list(decoder_channels[:-1])   # [512, 256, 128, 64]
+        out_channels = decoder_channels  # (256, 128, 64, 16)
 
-        if self.config.n_skip != 0:
-            skip_channels = self.config.skip_channels
+        if self.config.n_skip != 0:  # n_skip = 3
+            skip_channels = self.config.skip_channels  # [512, 256, 64, 16]
             for i in range(4 - self.config.n_skip):  # re-select the skip channels according to n_skip
-                skip_channels[3 - i] = 0
+                skip_channels[3 - i] = 0  # 不就是吧skip_channels变为 [512, 256, 64, 0]
 
         else:
             skip_channels = [0, 0, 0, 0]
@@ -380,6 +380,7 @@ class DecoderCup(nn.Module):
         blocks = [
             DecoderBlock(in_ch, out_ch, sk_ch) for in_ch, out_ch, sk_ch in zip(in_channels, out_channels, skip_channels)
         ]
+        # in:[512, 256, 128, 64]  out:[256, 128, 64, 16]    skip:[512, 256, 64, 0]
         self.blocks = nn.ModuleList(blocks)
 
     def forward(self, hidden_states, features=None):

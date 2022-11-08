@@ -52,13 +52,12 @@ class PreActBottleneck(nn.Module):
         self.conv3 = conv1x1(cmid, cout, bias=False)
         self.relu = nn.ReLU(inplace=True)
 
-        if (stride != 1 or cin != cout):
+        if stride != 1 or cin != cout:
             # Projection also with pre-activation according to paper.
             self.downsample = conv1x1(cin, cout, stride, bias=False)
             self.gn_proj = nn.GroupNorm(cout, cout)
 
     def forward(self, x):
-
         # Residual branch
         residual = x
         if hasattr(self, 'downsample'):
@@ -115,12 +114,12 @@ class ResNetV2(nn.Module):
 
     def __init__(self, block_units, width_factor):
         super().__init__()
-        width = int(64 * width_factor)
+        width = int(64 * width_factor)  # 输入的channel数 width_factor=1
         self.width = width
 
         self.root = nn.Sequential(OrderedDict([
-            ('conv', StdConv2d(3, width, kernel_size=7, stride=2, bias=False, padding=3)),
-            ('gn', nn.GroupNorm(32, width, eps=1e-6)),
+            ('conv', StdConv2d(3, width, kernel_size=7, stride=2, bias=False, padding=3)),  # 224-> 112 (H,W减半)  padding=(kernel_size-1)/2
+            ('gn', nn.GroupNorm(32, width, eps=1e-6)),  # GN：组归一化
             ('relu', nn.ReLU(inplace=True)),
             # ('pool', nn.MaxPool2d(kernel_size=3, stride=2, padding=0))
         ]))
@@ -148,17 +147,18 @@ class ResNetV2(nn.Module):
         b, c, in_size, _ = x.size()
         x = self.root(x)
         features.append(x)
-        x = nn.MaxPool2d(kernel_size=3, stride=2, padding=0)(x)
-        for i in range(len(self.body) - 1):
-            x = self.body[i](x)
-            right_size = int(in_size / 4 / (i + 1))
-            if x.size()[2] != right_size:
+        x = nn.MaxPool2d(kernel_size=3, stride=2, padding=0)(x)  # 下采样， H减半,C不变(64)  112->56
+        for i in range(len(self.body) - 1):  # i = [0,1]  保证能够被整除    只调用block1&2
+            x = self.body[i](x)  # C -> 256 - > 512
+            right_size = int(in_size / 4 / (i + 1))  # 224/4/1 = 56   224/4/2 = 28
+            if x.size()[2] != right_size:  # 图片的宽度
                 pad = right_size - x.size()[2]
                 assert pad < 3 and pad > 0, "x {} should {}".format(x.size(), right_size)
+
                 feat = torch.zeros((b, x.size()[1], right_size, right_size), device=x.device)
-                feat[:, :, 0:x.size()[2], 0:x.size()[3]] = x[:]
+                feat[:, :, 0:x.size()[2], 0:x.size()[3]] = x[:]  # x.size()[2] < right_size,所以获取其特征的时候只需要取0-x.size()[2]之间的就可以了
             else:
-                feat = x
+                feat = x  # 正确的size， 就是用来处理不同图片的输出大小问题。
             features.append(feat)
-        x = self.body[-1](x)
-        return x, features[::-1]
+        x = self.body[-1](x)  # 调用block3
+        return x, features[::-1]  # [::-1]逆序输出

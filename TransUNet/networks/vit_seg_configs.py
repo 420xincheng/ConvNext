@@ -1,14 +1,15 @@
 import ml_collections
 
+
 def get_b16_config():
     """Returns the ViT-B/16 configuration."""
     config = ml_collections.ConfigDict()
     config.patches = ml_collections.ConfigDict({'size': (16, 16)})
     config.hidden_size = 768
     config.transformer = ml_collections.ConfigDict()
-    config.transformer.mlp_dim = 3072
-    config.transformer.num_heads = 12
-    config.transformer.num_layers = 12
+    config.transformer.mlp_dim = 3072  # 一般可以设置为hidden_size的4倍
+    config.transformer.num_heads = 12  # 注意力头的个数
+    config.transformer.num_layers = 12  # transformer的层数
     config.transformer.attention_dropout_rate = 0.0
     config.transformer.dropout_rate = 0.1
 
@@ -38,6 +39,7 @@ def get_testing():
     config.classifier = 'token'
     config.representation_size = None
     return config
+
 
 def get_r50_b16_config():
     """Returns the Resnet50 + ViT-B/16 configuration."""
@@ -94,8 +96,8 @@ def get_r50_l16_config():
     config = get_l16_config()
     config.patches.grid = (16, 16)
     config.resnet = ml_collections.ConfigDict()
-    config.resnet.num_layers = (3, 4, 9)
-    config.resnet.width_factor = 1
+    config.resnet.num_layers = (3, 4, 9)  # 把resnet50的最后两层和为一起了
+    config.resnet.width_factor = 1  # 宽度影响因子，方便调整输出的channel数
 
     config.classifier = 'seg'
     config.resnet_pretrained_path = '../model/vit_checkpoint/imagenet21k/R50+ViT-B_16.npz'
