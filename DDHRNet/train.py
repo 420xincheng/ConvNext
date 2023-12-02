@@ -190,9 +190,6 @@ def train(cfg):
         startup_prog.random_seed = 1000
         train_prog.random_seed = 1000
     drop_last = True
-    """
-    ��������
-    """
     # dataset = SegDataset(
     #     file_list=cfg.DATASET.TRAIN_FILE_LIST,
     #     mode=ModelPhase.TRAIN,
@@ -203,13 +200,13 @@ def train(cfg):
         file_list=cfg.DATASET.TRAIN_FILE_LIST,
         mode=ModelPhase.TRAIN,
         shuffle=True,
-        data_dir=cfg.DATASET.DATA_DIR)  # process��������ֵ��(img, sar_img, grt, ignore)
+        data_dir=cfg.DATASET.DATA_DIR)  # process(img, sar_img, grt, ignore)
 
     def data_generator():
         data_gen = dataset.generator()
 
         batch_data = []
-        # ����b�����4��Ԫ�أ��ֱ���(img, sar_img, grt, ignore)
+        # (img, sar_img, grt, ignore)
         for b in data_gen:
             batch_data.append(b)
             if len(batch_data) == (cfg.BATCH_SIZE // cfg.NUM_TRAINERS):
@@ -240,15 +237,13 @@ def train(cfg):
     print_info("batch_size_per_dev: {}".format(batch_size_per_dev))
 
     """
-    ����ģ�ͣ������data_loaderҪ��
+    data_loader
     """
     data_loader, avg_loss, lr, pred, grts, masks = build_model(
         train_prog, startup_prog, phase=ModelPhase.TRAIN)
 
     build_model(test_prog, fluid.Program(), phase=ModelPhase.EVAL)
-    """
-    ������������ݶ�ȡ
-    """
+
     data_loader.set_sample_generator(
         data_generator, batch_size=batch_size_per_dev, drop_last=drop_last)
 
@@ -332,7 +327,7 @@ def train(cfg):
     else:
         print_info("Use multi-thread reader")
     """
-    ѵ������
+    ѵ
     """
     # image_shape = [-1, 3, 256, 256]
     # image = fluid.data(name='image', shape=image_shape, dtype='float32')
