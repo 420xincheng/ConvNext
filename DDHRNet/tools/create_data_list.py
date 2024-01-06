@@ -41,9 +41,9 @@ def split_whu_data(root):
     with open(os.path.join(root, 'val_WHU_list.txt'), 'w', encoding='utf-8') as f:
         for each in tqdm(val_list):
             filename = os.path.splitext(each)[0]
-            f.write(root + '/train/opt/' + filename + '.jif' + ' '
-                    + root + '/train/sar/' + filename + '.jif' + ' '
-                    + root + '/train/lbl/' + filename + '.jif' + '\n')
+            f.write(root + '/val/opt/' + filename + '.jif' + ' '
+                    + root + '/val/sar/' + filename + '.jif' + ' '
+                    + root + '/val/lbl/' + filename + '.jif' + '\n')
 
 
 if __name__ == '__main__':
