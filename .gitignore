@@ -1,0 +1,4 @@
+.vscode
+SOLC/save/*
+SOLC/test-model/*
+*/__pycache__/
